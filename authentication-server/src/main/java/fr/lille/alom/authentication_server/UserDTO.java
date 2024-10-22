@@ -4,15 +4,7 @@ public class UserDTO {
     private String username;
     private String password;
 
-    // Constructeurs
-    public UserDTO() {}
-
-    public UserDTO(String username, String password) {
-        this.username = username;
-        this.password = password;
-    }
-
-    // Getters et Setters
+    // Getters and setters
     public String getUsername() {
         return username;
     }
