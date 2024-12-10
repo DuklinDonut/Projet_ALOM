@@ -1,36 +1,103 @@
 package fr.lille.alom.aller_microservice;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import javax.ws.rs.*;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
-@RestController
-@RequestMapping("/api")
+@Path("/") // Gère "/api/test" car "/api" est défini dans @ApplicationPath
 public class Aller {
 
-    private final RestTemplate restTemplate;
+    private final Client client;
 
-    public Aller(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public Aller() {
+        this.client = ClientBuilder.newClient(); // Client HTTP Jersey
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody UserDTO userDTO) {
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String testEndpoint() {
+        return "Aller-server is running!";
+    }
+
+    @POST
+    @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response login(UserDTO userDTO) {
         // URL du microservice d'authentification
-        String authServiceUrl = "http://localhost:8080/authentication-server/api/authenticate";  // Utilisez le port 8080 pour Authentication
+        String authServiceUrl = "http://localhost:8081/authentication-server/api/authenticate";
 
-        // Effectuer une requête POST au microservice d'authentification et recevoir un AuthResponseDTO
-        ResponseEntity<AuthResponseDTO> response = restTemplate.postForEntity(authServiceUrl, userDTO, AuthResponseDTO.class);
+        // Effectuer une requête POST au microservice d'authentification avec les données non hachées
+        Response authResponse = client.target(authServiceUrl)
+                .request(MediaType.APPLICATION_JSON)
+                .post(Entity.entity(userDTO, MediaType.APPLICATION_JSON));
 
-        if (response.getStatusCode().is2xxSuccessful()) {
-            // Récupérer la réponse de l'authentification
-            AuthResponseDTO authInfo = response.getBody();
+        // Vérifier si l'authentification a réussi
+        if (authResponse.getStatus() == 200) {
+            // Retourner les informations d'authentification reçues du microservice
+            AuthResponseDTO authInfo = authResponse.readEntity(AuthResponseDTO.class);
 
-            // Retourner les informations d'authentification reçues du microservice d'authentification
-            return ResponseEntity.ok(authInfo);
+            // Ajouter le mot de passe non haché dans la réponse si nécessaire
+            return Response.ok(new AuthResponseDTO(
+                    authInfo.getUsername(),
+                    authInfo.getHashedPassword(),
+                    authInfo.getToken(),
+                    userDTO.getPassword() // Mot de passe fourni dans la requête
+            )).build();
         } else {
-            return ResponseEntity.status(401).body(null);  // Retourner une réponse 401 en cas d'échec
+            // Retourner une réponse 401 en cas d'échec
+            return Response.status(Response.Status.UNAUTHORIZED).entity("Authentication failed").build();
         }
+    
     }
 }
+
+
+
+
+
+/* package fr.lille.alom.aller_microservice;
+
+import javax.ws.rs.*;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
+@Path("/api")
+public class Aller {
+
+    private final Client client;
+
+    public Aller() {
+        this.client = ClientBuilder.newClient(); // Client HTTP Jersey
+    }
+
+    @POST
+    @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response login(UserDTO userDTO) {
+        // URL du microservice d'authentification
+        String authServiceUrl = "http://localhost:8081/authentication-server/api/authenticate";
+
+        // Effectuer une requête POST au microservice d'authentification
+        Response response = client.target(authServiceUrl)
+                .request(MediaType.APPLICATION_JSON)
+                .post(Entity.entity(userDTO, MediaType.APPLICATION_JSON));
+
+        // Vérifier si l'authentification a réussi
+        if (response.getStatus() == 200) {
+            // Retourner les informations d'authentification reçues du microservice
+            AuthResponseDTO authInfo = response.readEntity(AuthResponseDTO.class);
+            return Response.ok(authInfo).build();
+        } else {
+            // Retourner une réponse 401 en cas d'échec
+            return Response.status(Response.Status.UNAUTHORIZED).build();
+        }
+    }
+} */
